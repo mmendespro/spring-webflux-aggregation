@@ -16,16 +16,16 @@ public class HttpPromotionClient implements PromotionClientPort {
     private final Promotion noPromotion = new Promotion("no-promotion", 0.0, LocalDate.of(2999, 12, 31));
 
     public HttpPromotionClient(WebClient.Builder builder) {
-        this.client = builder.baseUrl("http://localhost:3000/promotions/").build();
+        this.client = builder.baseUrl("http://localhost:3000/promotions").build();
     }
 
     @Override
     public Mono<Promotion> loadPromotion(Integer productId) {
          return this.client
                 .get()
-                .uri("{productId}", productId)
+                .uri("/{productId}", productId)
                 .retrieve()
                 .bodyToMono(Promotion.class)
-                .onErrorReturn(noPromotion); // if no result, it returns 404, so switch to no promotion    }
+                .onErrorReturn(noPromotion); // if no result, it returns 404, so switch to no promotion
     }
 }

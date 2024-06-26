@@ -27,6 +27,6 @@ public class HttpReviewClient implements ReviewClientPort {
                 .retrieve()
                 .bodyToFlux(Review.class)
                 .collectList()
-                .onErrorReturn(Collections.emptyList()); // in case of error, switch it to empty list    }
+                .onErrorReturn(Collections.emptyList()); // in case of error, switch it to empty list
     }
 }

@@ -1,0 +1,15 @@
+###
+# shows the product 1 information
+GET http://localhost:3000/products/1
+
+###
+# shows the promotion details for product id = 1
+GET http://localhost:3000/promotions/1
+
+###
+# to get all the reviews for product id = 1
+GET http://localhost:3000/reviews?productId=1
+
+###
+# get combined product information for id = 2
+GET http://localhost:8080/product/2
