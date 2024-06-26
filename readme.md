@@ -8,8 +8,8 @@ In this tutorial, Let’s develop a simple application to demonstrate **Spring W
 
 In a Microservice architecture, we will have N number of services and each service has its own responsibilities & databases. Data would have been distributed among them. For ex:
 
-    1. **user-service**: It is responsible for all the user management.
-    2. **order-service**: It is responsible for managing customer’s orders.
+    1. user-service: It is responsible for all the user management.
+    2. order-service: It is responsible for managing customer’s orders.
 
 Let’s say we have a requirement in which user profile page should show user information along with user’s orders. To do this, the client/frontend might have to call these 2 microservices to build the page. If you have something like a dashboard page, the frontend might have to call multiple microservices. Usually it is NOT a preferred approach to let the frontend to make multiple calls. Instead we could have another microservice which acts like an **aggregator** whose main responsibility is to receive the request from the frontend and gather all the  required information from multiple microservices, build the combined response and send it to the frontend as shown here.
 
@@ -35,13 +35,16 @@ Let’s assume that these are all being managed by 3 different microservices. So
 ## Project Setup:
 
     1. Create a spring application with the following dependencies:
+
         * spring-boot-starter-webflux
         * spring-boot-starter-actuator
         * Lombock
+
     2. We are going to mock the above 3 microservices by using json-server.
     3. Create a file called db.json which will act like a database.
     4. product-service: Add this product information:
-    ´´´json
+
+    ```json
         "products": [
             {
                 "id":1,
@@ -59,9 +62,10 @@ Let’s assume that these are all being managed by 3 different microservices. So
                 "category": "pet supplies"
             }
         ]
-    ´´´
+    ```
     5. promotion-service: Add this promotion information:
-    ´´´json
+
+    ```json
         "promotions":[
             {
                 "id":1,
@@ -76,9 +80,10 @@ Let’s assume that these are all being managed by 3 different microservices. So
                 "endDate": "2022-12-31"
             }
         ]
-    ´´´
+    ```
     6. ratings-service: Add this ratings information:
-    ´´´json
+
+    ```json
         "reviews":[
             {
                 "productId": 1,
@@ -93,9 +98,11 @@ Let’s assume that these are all being managed by 3 different microservices. So
                 "comment": "stopped working after 2 weeks :("
             }
         ]
-    ´´´
+    ```
+
     7. We can use the below docker-compose yaml to expose REST APIs to access above information.
-    ´´´yaml
+
+    ```yaml
         version: '3'
         services:
         server:
@@ -104,9 +111,11 @@ Let’s assume that these are all being managed by 3 different microservices. So
             - "3000:80"
             volumes:
             - ${PWD}/db.json:/data/db.json
-    ´´´
+    ```
+
     8. For example, sending below requests to show the corresponding data.
-    ´´´bash
+
+    ```bash
         # shows the product 1 information
         curl http://localhost:3000/products/1
 
@@ -115,7 +124,7 @@ Let’s assume that these are all being managed by 3 different microservices. So
 
         # to get all the reviews for product id = 1
         curl http://localhost:3000/reviews?productId=1
-    ´´´
+    ```
 Now we have created 3 microservices using json-server. It is time for us to build the **Spring WebFlux Aggregation** Service.
 
 ## Spring WebFlux Aggregation Service:
@@ -124,7 +133,7 @@ This microservice is responsible for talking to those 3 services to gather the p
 
     * Product Aggregator Dto:
 
-    ´´´java
+    ```java
         @Data
         @ToString
         @AllArgsConstructor(staticName = "create")
@@ -133,11 +142,11 @@ This microservice is responsible for talking to those 3 services to gather the p
             private Promotion promotion;
             private List<Review> reviews;
         }
-    ´´´
+    ```
 
     * Product Dto:
 
-    ´´´java
+    ```java
         @Data
         @ToString
         public class Product {
@@ -145,11 +154,11 @@ This microservice is responsible for talking to those 3 services to gather the p
             private String description;
             private String category;
         }
-    ´´´
+    ```
 
     * Promotion Dto:
 
-    ´´´java
+    ```java
         @Data
         @ToString
         public class Promotion {
@@ -157,11 +166,11 @@ This microservice is responsible for talking to those 3 services to gather the p
             private Double discount;
             private LocalDate endDate;
         }
-    ´´´
+    ```
 
     * Review Dto:
 
-    ´´´java
+    ```java
         @Data
         @ToString
         public class Review {
@@ -169,14 +178,15 @@ This microservice is responsible for talking to those 3 services to gather the p
             private Integer rating;
             private String comment;
         }
-    ´´´
+    ```
+
 ## WebClient:
 
 This service needs to call 3 different microservices. So we are going to build a client to make calls in this aggregator service. Do note that this service should be highly resilient. That is, when we have product and promotion information but the review-service is not available, we should not fail the request. Instead we could still build the response assuming there are no reviews for the product as a fallback in case of error. Check the implementation here to get an idea.
 
     * product-client:
 
-    ´´´java
+    ```java
         @Service
         public class ProductClient {
 
@@ -195,11 +205,11 @@ This service needs to call 3 different microservices. So we are going to build a
                         .onErrorResume(ex -> Mono.empty()); // switch it to empty in case of error
             }
         }
-    ´´´
+    ```
 
     * promotion-client:
 
-    ´´´java
+    ```java
         @Service
         public class PromotionClient {
 
@@ -219,11 +229,11 @@ This service needs to call 3 different microservices. So we are going to build a
                         .onErrorReturn(noPromotion); // if no result, it returns 404, so switch to no promotion
             }
         }    
-    ´´´
+    ```
 
     * review-client:
 
-    ´´´java
+    ```java
         @Service
         public class ReviewClient {
 
@@ -243,13 +253,13 @@ This service needs to call 3 different microservices. So we are going to build a
                         .onErrorReturn(Collections.emptyList()); // in case of error, switch it to empty list
             }
         }
-    ´´´
+    ```
 
 ## Gateway Aggregator Service:
 
 This is the service class which combines the information and builds the response. Use **Mono.zip** to make these calls in an asynchronous and non-blocking fashion and combine the responses in a **Tuple** object.
 
-    ´´´java
+    ```java
         @Service
         @AllArgsConstructor
         public class ProductAggregatorService {
@@ -275,11 +285,11 @@ This is the service class which combines the information and builds the response
                 );
             }
         }
-    ´´´
+    ```
 
     * Finaly the Controller:
 
-    ´´´java
+    ```java
         @RestController
         @RequestMapping("product")
         public class ProductAggregateController {
@@ -294,7 +304,7 @@ This is the service class which combines the information and builds the response
                         .defaultIfEmpty(ResponseEntity.notFound().build());
             }
         }    
-    ´´´
+    ```
 
 That’s it!
 
@@ -302,10 +312,10 @@ That’s it!
 
     1. Start our aggregator application. Send the below request.
 
-    ´´´bash
+    ```bash
         # get combined product information for id = 2
         curl http://localhost:8080/product/2
-    ´´´
+    ```
 
     2. We could see below response:
 
@@ -334,19 +344,19 @@ That’s it!
                 }
             ]
         }
-    ´´´
+    ```
 
 ## Resilience:
 
 We have also made our service resilient. For ex: in the reviews-client, change the port from 3000 to 4000. Restart the the application and send this request:
 
-´´´bash
+```bash
     curl http://localhost:8080/product/2
-´´´
+```
 
 We see this response. Even if the review-service is not reachable at port 4000, our application still works with default response.
 
-´´´json
+```json
 {
    "product":{
       "id":"1",
@@ -362,7 +372,7 @@ We see this response. Even if the review-service is not reachable at port 4000, 
       
    ]
 }
-´´´
+```
 
 ## Summary:
 
