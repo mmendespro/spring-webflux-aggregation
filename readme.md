@@ -2,7 +2,7 @@
 
 ## Overview:
 
-In this tutorial, Let’s develop a simple application to demonstrate **Spring WebFlux Aggregation** (aka **Gateway Aggregation**) to send requests to multiple Microservices and gather responses from them to aggregate into a single response.
+Let’s develop a simple application to demonstrate **Spring WebFlux Aggregation** (aka **Gateway Aggregation**) to send requests to multiple Microservices and gather responses from them to aggregate into a single response.
 
 ## Spring WebFlux Aggregation:
 
